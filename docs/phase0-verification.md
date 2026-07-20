@@ -51,7 +51,7 @@ After the device patch, from inside the patched `NT-SSM/` clone (2x2 objective m
 python main.py --dataset lastfm --model_name LightGCN_NT --model_type graph \
   --loss_type ssm --tau 0.2 --epoch 200 --batch_size 2048 --learning_rate 0.001 \
   --reg_lambda 0.0001 --embedding_size 64 --n_layer 2 --item_ranking 10,20,40 \
-  --alpha_uu 1.0 --alpha_ii 1.0 --alpha_ui 1.0 --alpha_iu 1.0 --seed 2026
+  --alpha_uu 1.2 --alpha_ii 0.8 --alpha_ui 0.8 --alpha_iu 0.9 --seed 2026
 
 # SSM     (standard sampled softmax; drop the _NT suffix)
 python main.py --dataset lastfm --model_name LightGCN --model_type graph \
@@ -61,7 +61,7 @@ python main.py --dataset lastfm --model_name LightGCN --model_type graph \
 # NT-BPR / BPR: same as above with --loss_type bpr on LightGCN_NT / LightGCN respectively.
 ```
 
-Note: LastFM-specific `--alpha_*` values are not in `run.sh` (which targets ml-1m with uu1.2/ii0.8/ui0.8/iu1.0). Start from `1.0` all-round or the paper's LastFM appendix values, and log whatever is used.
+Note: the LastFM `--alpha_*` values above come from the paper's Appendix Table 5 (LightGCN / LastFM / NT-SSM: uu1.2/ii0.8/ui0.8/iu0.9), not from `run.sh` (which targets ml-1m with iu1.0). Only these four weights vary per dataset; tau/lr/reg/layers/epochs are held fixed. `harness/run_lastfm.sh` uses these as defaults, overridable via `ALPHA_UU/II/UI/IU`.
 
 ## Open items for the harness build
 
