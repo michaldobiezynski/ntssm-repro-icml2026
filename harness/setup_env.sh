@@ -6,20 +6,30 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$HERE")"
-VENV="$REPO/.venv"
-CLONE="$REPO/NT-SSM"
+# Paths are overridable so --check can run against an isolated tree in tests.
+VENV="${NTSSM_VENV:-$REPO/.venv}"
+CLONE="${NTSSM_DIR:-$REPO/NT-SSM}"
 PIN_FILE="$REPO/PINNED_COMMIT_NTSSM.txt"
-PIN="$(tr -d '[:space:]' < "$PIN_FILE")"
 # torch wheels are reliable on 3.13 and dicey on 3.14; prefer 3.13 explicitly.
 PY_BIN="${PYTHON:-$(command -v python3.13 || true)}"
 DEPS=(torch numpy scipy numba trackio pytest)
+
+# Read+validate the pinned commit lazily (only the setup/check paths need it), so
+# --help does not depend on the pin file existing.
+read_pin() {
+  [ -f "$PIN_FILE" ] || { echo "error: pin file not found: $PIN_FILE" >&2; exit 2; }
+  local pin; pin="$(tr -d '[:space:]' < "$PIN_FILE")"
+  [[ "$pin" =~ ^[0-9a-f]{7,40}$ ]] || { echo "error: invalid commit hash in $PIN_FILE: '$pin'" >&2; exit 2; }
+  printf '%s' "$pin"
+}
 
 usage() {
   cat <<EOF
 usage: setup_env.sh [--check | --help]
 
   (no arg)   full setup: create .venv (python3.13), install deps, clone+pin NT-SSM
-             at $PIN, apply the CPU device patch, verify imports.
+             at the pinned commit (PINNED_COMMIT_NTSSM.txt), apply the CPU device
+             patch, verify imports.
   --check    verify an existing setup (venv, pinned+patched clone, imports); no install.
   -h,--help  show this help.
 EOF
@@ -27,6 +37,7 @@ EOF
 
 check_setup() {
   local ok=0
+  local PIN; PIN="$(read_pin)"
   if [ -x "$VENV/bin/python" ]; then echo "[ok] venv: $VENV"; else echo "[MISSING] venv: run setup_env.sh"; ok=1; fi
   if [ -d "$CLONE/.git" ]; then
     local head; head="$(git -C "$CLONE" rev-parse HEAD 2>/dev/null || echo none)"
@@ -47,6 +58,7 @@ PY
 }
 
 full_setup() {
+  local PIN; PIN="$(read_pin)"
   [ -n "$PY_BIN" ] || { echo "error: python3.13 not found; set PYTHON=/path/to/python3.13" >&2; exit 2; }
   echo ">>> python: $("$PY_BIN" --version)"
 
