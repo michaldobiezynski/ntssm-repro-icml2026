@@ -75,6 +75,28 @@ def test_parse_raises_if_selection_cutoff_absent(tmp_path):
         oc.parse_epoch_log(path, item_ranking=(10, 40))
 
 
+def test_parse_skips_bare_numeric_and_short_lines(tmp_path):
+    # A stray progress print ('200') and a too-short line must be skipped, not crash (F1).
+    log = "200\ngarbage\n1,valid,,0.1,0.09,0.2,0.18,0.3,0.28\n1,test,,0.1,0.09,0.21,0.19,0.3,0.28\n"
+    path = _write(tmp_path, log)
+    metrics = oc.parse_epoch_log(path)
+    assert metrics["recall@20"] == pytest.approx(0.21)
+
+
+def test_parse_raises_when_no_valid_rows(tmp_path):
+    log = "1,test,,0.1,0.09,0.2,0.18,0.3,0.28\n"  # test only, no valid split
+    path = _write(tmp_path, log)
+    with pytest.raises(ValueError, match="no validation rows"):
+        oc.parse_epoch_log(path)
+
+
+def test_parse_raises_when_best_epoch_lacks_report_split(tmp_path):
+    log = "1,valid,,0.1,0.09,0.2,0.18,0.3,0.28\n"  # valid only, no test row
+    path = _write(tmp_path, log)
+    with pytest.raises(ValueError, match="test"):
+        oc.parse_epoch_log(path)
+
+
 def test_collect_run_metrics_maps_objectives(tmp_path):
     ssm = _write(tmp_path, SAMPLE_LOG, "ssm.txt")
     ntssm = _write(

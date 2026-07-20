@@ -160,10 +160,12 @@ def parse_epoch_log(path, item_ranking=(10, 20, 40), select_metric="ndcg@20", re
             if not line:
                 continue
             fields = line.split(",")
+            if len(fields) < 2:
+                continue  # not a data row (needs at least epoch,split)
             try:
                 epoch = int(fields[0])
-            except (ValueError, IndexError):
-                continue  # defensively skip any non-data line
+            except ValueError:
+                continue  # defensively skip any non-data line (e.g. a stray print)
             split = fields[1]
             row = {}
             for metric, idx in field_index.items():
@@ -171,6 +173,9 @@ def parse_epoch_log(path, item_ranking=(10, 20, 40), select_metric="ndcg@20", re
                     row[metric] = float(fields[idx])
             per_epoch.setdefault(epoch, {})[split] = row
 
+    # First-best tie-break: max() returns the earliest epoch achieving the best
+    # validation score, matching upstream NT-SSM's strict-improvement (`>`) early
+    # stopping, which keeps the earlier epoch on a tie (verified in LightGCN_NT.py).
     scored = [
         (epoch, splits["valid"][select_metric])
         for epoch, splits in per_epoch.items()
@@ -230,6 +235,9 @@ def main(argv=None):
     primary = tuple(m.strip() for m in args.primary.split(",") if m.strip())
     if args.logs:
         item_ranking = tuple(int(c) for c in args.item_ranking.split(","))
+        bad = [p for p in args.logs if "=" not in p]
+        if bad:
+            parser.error(f"--logs entries must be OBJ=PATH; missing '=' in: {', '.join(bad)}")
         log_paths = dict(pair.split("=", 1) for pair in args.logs)
         metrics = collect_run_metrics(log_paths, item_ranking=item_ranking)
     elif args.results:

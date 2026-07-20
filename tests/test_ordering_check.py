@@ -125,3 +125,70 @@ def test_report_includes_ordering_verdict_and_is_string():
     assert isinstance(text, str)
     assert "NT-SSM" in text and "SSM" in text
     assert "PASS" in text.upper()
+
+
+# --- Tolerance report + CLI (F13) ----------------------------------------------
+
+def test_tolerance_report_flags_within_and_outside():
+    metrics = {"NT-SSM": {"recall@20": 0.2953, "ndcg@20": 0.40}}
+    ref = {
+        "NT-SSM": {
+            "recall@20": {"mean": 0.2953, "std": 0.0012},
+            "ndcg@20": {"mean": 0.2709, "std": 0.0013},
+        }
+    }
+    rows = {r["metric"]: r for r in oc.tolerance_report(metrics, ref)}
+    assert rows["recall@20"]["within"] is True
+    assert rows["ndcg@20"]["within"] is False  # 0.40 far outside ~0.0135 band
+
+
+def test_tolerance_report_skips_missing_ref():
+    assert oc.tolerance_report({"BPR": {"recall@20": 0.1}}, {}, primary=("recall@20",)) == []
+
+
+def test_format_report_renders_tolerance_section():
+    metrics = _full_matrix(0.27, 0.26, 0.24, 0.23, metric="ndcg@20")
+    result = oc.check_ordering(metrics, primary=("ndcg@20",))
+    ref = {k: {"ndcg@20": {"mean": v[list(v)[0]], "std": 0.001}} for k, v in metrics.items()}
+    tol = oc.tolerance_report(metrics, ref, primary=("ndcg@20",))
+    text = oc.format_report(result, tolerance=tol)
+    assert "TOLERANCE" in text
+
+
+def _write_matrix_logs(tmp_path, ntssm_n=0.28, ssm_n=0.26):
+    def one(n):
+        return f"1,valid,,0.1,0.09,0.2,{n},0.3,0.28\n1,test,,0.1,0.09,0.2,{n},0.3,0.28\n"
+    paths = {}
+    for obj, n in (("NT-SSM", ntssm_n), ("SSM", ssm_n), ("NT-BPR", 0.25), ("BPR", 0.24)):
+        p = tmp_path / f"{obj}.txt"
+        p.write_text(one(n))
+        paths[obj] = str(p)
+    return paths
+
+
+def test_main_logs_pass_returns_zero(tmp_path, capsys):
+    p = _write_matrix_logs(tmp_path)
+    code = oc.main(["--logs", *[f"{o}={pt}" for o, pt in p.items()], "--primary", "ndcg@20"])
+    assert code == 0
+    assert "PASS" in capsys.readouterr().out.upper()
+
+
+def test_main_logs_fail_returns_one(tmp_path, capsys):
+    p = _write_matrix_logs(tmp_path, ntssm_n=0.24, ssm_n=0.26)  # NT-SSM below SSM
+    code = oc.main(["--logs", *[f"{o}={pt}" for o, pt in p.items()], "--primary", "ndcg@20"])
+    assert code == 1
+
+
+def test_main_missing_equals_errors(tmp_path):
+    with pytest.raises(SystemExit) as exc:  # parser.error -> SystemExit(2) (F5)
+        oc.main(["--logs", "NT-SSM"])
+    assert exc.value.code == 2
+
+
+def test_main_results_json_input(tmp_path, capsys):
+    import json
+
+    results = tmp_path / "r.json"
+    results.write_text(json.dumps(_full_matrix(0.27, 0.26, 0.24, 0.23, metric="ndcg@20")))
+    code = oc.main([str(results), "--primary", "ndcg@20"])
+    assert code == 0
