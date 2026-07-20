@@ -1,0 +1,35 @@
+# External upstream clone (pinned by commit hash, not vendored)
+/NT-SSM/
+/LatentTSF/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# Datasets and run outputs (large / regenerable)
+/data/
+/dataset/
+/results/
+/logs/
+/embs/
+*.pkl
+
+# Trackio local store
+.trackio/
+trackio*.db
+
+# Secrets: never commit tokens or credentials
+*.token
+.hf_token
+.env
+.env.*
+hf_token*
+*credential*
+
+# macOS
+.DS_Store
