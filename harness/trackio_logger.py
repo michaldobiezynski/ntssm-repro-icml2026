@@ -38,7 +38,13 @@ class LogbookRun:
     def alert(self, title, text, level="WARN"):
         if level not in _LEVELS:
             raise ValueError(f"level must be one of {_LEVELS}, got {level!r}")
-        resolved = getattr(self.trackio.AlertLevel, level)
+        try:
+            resolved = getattr(self.trackio.AlertLevel, level)
+        except AttributeError as exc:  # installed trackio uses different level names
+            raise ValueError(
+                f"trackio.AlertLevel has no {level!r}; this trackio build may name levels "
+                f"differently. Available: {[a for a in dir(self.trackio.AlertLevel) if not a.startswith('_')]}"
+            ) from exc
         self.trackio.alert(title=title, text=text, level=resolved)
 
     def finish(self):

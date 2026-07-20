@@ -78,6 +78,21 @@ def test_alert_rejects_unknown_level():
         run.alert(title="x", text="y", level="CRITICAL")
 
 
+def test_alert_fails_clearly_if_installed_trackio_lacks_level():
+    # A real trackio whose AlertLevel omits WARN must fail with a clear ValueError,
+    # not a raw AttributeError at run time (F8).
+    class Levels:
+        INFO = "i"
+        ERROR = "e"  # no WARN
+
+    fake = _fake_trackio()
+    fake.AlertLevel = Levels
+    run = LogbookRun(trackio=fake)
+    run.start()
+    with pytest.raises(ValueError, match="WARN"):
+        run.alert(title="x", text="y", level="WARN")
+
+
 def test_finish_calls_trackio_finish():
     fake = _fake_trackio()
     run = LogbookRun(trackio=fake)
