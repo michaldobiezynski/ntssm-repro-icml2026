@@ -35,10 +35,32 @@ data.
 
 ## Getting started
 
-Read `docs/phase0-verification.md` first (verified commands), then `CLAUDE.md`. The harness
-under `harness/` automates the environment setup, the device patch, and the LastFM runs;
-actual multi-hour training is triggered by the owner, not by an unattended build.
+Read `docs/phase0-verification.md` first (verified commands), then `CLAUDE.md`.
+
+```bash
+# 1. one-off environment: venv (python3.13), deps, pinned + patched NT-SSM clone
+bash harness/setup_env.sh
+bash harness/setup_env.sh --check         # verify readiness without installing
+
+# 2. preview the LastFM pipeline (no training)
+bash harness/run_lastfm.sh --dry-run
+
+# 3. run the harness tests (no ML stack needed)
+.venv/bin/python -m pytest
+
+# 4. OWNER-TRIGGERED: train the 2x2 matrix on CPU (~45 min budget)
+bash harness/run_lastfm.sh --execute
+
+# 5. reproduction verdict from the four run logs
+.venv/bin/python harness/ordering_check.py \
+  --logs NT-SSM=NT-SSM/logs/<run>.txt SSM=... NT-BPR=... BPR=... \
+  --reference harness/paper_reference.json
+```
+
+Multi-hour training is triggered by the owner (step 4), never by an unattended build.
 
 ## Status
 
-Phase 0 (verify-on-clone) complete. Harness build in progress on a feature branch.
+Phase 0 (verify-on-clone) complete. Reproduction harness built and unit-tested (40 tests):
+CUDA->CPU device patch, dry-runnable LastFM driver, ordering + tolerance verdict, and a
+local-only Trackio wrapper. Training runs remain owner-triggered.
