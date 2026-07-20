@@ -14,6 +14,7 @@ The core `patch_source` is a pure text transform so it is unit-tested without a 
 from __future__ import annotations
 
 import argparse
+import ast
 import os
 import sys
 from dataclasses import dataclass, field
@@ -22,7 +23,13 @@ _DEVICE_CONST = '_NTSSM_DEVICE = torch.device("cpu")  # patched by patch_device.
 
 
 def patch_source(text):
-    """Pure transform. Returns (new_text, n_cuda, n_sparse, inserted_device)."""
+    """Pure transform. Returns (new_text, n_cuda, n_sparse, inserted_device).
+
+    Only the bare `.cuda()` form is rewritten. Every device call in the pinned NT-SSM
+    clone (da8655e) is bare `.cuda()` (verified: 20 sites), so an argumented form like
+    `.cuda(0)` does not occur; it is intentionally left untouched rather than risk
+    corrupting a non-default-device call.
+    """
     n_cuda = text.count(".cuda()")
     n_sparse = text.count("torch.sparse.FloatTensor(")
     new = text.replace(".cuda()", ".to(_NTSSM_DEVICE)")
@@ -37,12 +44,39 @@ def patch_source(text):
 
 def _insert_device_constant(text):
     lines = text.splitlines(keepends=True)
+    # Preferred: right after a top-level `import torch` (which binds the name `torch`).
     for idx, line in enumerate(lines):
         if line.strip() == "import torch":
             lines.insert(idx + 1, _DEVICE_CONST + "\n")
             return "".join(lines)
-    # Fallback: self-contained block if a bare `import torch` is somehow absent.
-    return 'import torch as _ntssm_torch\n_NTSSM_DEVICE = _ntssm_torch.device("cpu")\n' + text
+    # Fallback: no bare `import torch`. Insert a self-contained block, but AFTER any
+    # leading `from __future__` imports and a module docstring (both of which must stay
+    # first), so the patched file still compiles.
+    at = _first_insertable_line(text)
+    block = 'import torch as _ntssm_torch\n_NTSSM_DEVICE = _ntssm_torch.device("cpu")\n'
+    lines.insert(at, block)
+    return "".join(lines)
+
+
+def _first_insertable_line(text):
+    """0-based line index after any leading docstring and `from __future__` imports."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return 0
+    idx = 0
+    for node in tree.body:
+        is_docstring = (
+            isinstance(node, ast.Expr)
+            and isinstance(getattr(node, "value", None), ast.Constant)
+            and isinstance(node.value.value, str)
+        )
+        is_future = isinstance(node, ast.ImportFrom) and node.module == "__future__"
+        if is_docstring or is_future:
+            idx = node.end_lineno  # 1-based end line -> insert at this 0-based index (after it)
+        else:
+            break
+    return idx
 
 
 @dataclass

@@ -77,6 +77,30 @@ def test_idempotent_on_already_patched_source():
     assert n_cuda == 0 and n_sparse == 0 and inserted is False
 
 
+def test_fallback_inserts_when_no_bare_import_torch():
+    # `.cuda()` present but only `import torch as th` -> self-contained fallback (F6/F17).
+    src = "import torch as th\n\nx = th.zeros(1).cuda()\n"
+    new, n_cuda, _, inserted = pd.patch_source(src)
+    assert n_cuda == 1
+    assert inserted is True
+    assert "_NTSSM_DEVICE" in new and ".cuda()" not in new
+    compile(new, "<patched>", "exec")
+
+
+def test_fallback_keeps_future_import_first():
+    src = "from __future__ import annotations\nimport torch as th\nz = th.zeros(1).cuda()\n"
+    new, *_ = pd.patch_source(src)
+    compile(new, "<patched>", "exec")  # future import must remain the first statement
+    assert new.splitlines()[0].strip() == "from __future__ import annotations"
+
+
+def test_fallback_keeps_module_docstring_first():
+    src = '"""Module doc."""\nimport torch as th\nz = th.zeros(1).cuda()\n'
+    new, *_ = pd.patch_source(src)
+    compile(new, "<patched>", "exec")
+    assert new.splitlines()[0].strip() == '"""Module doc."""'
+
+
 def test_patch_tree_walks_and_reports(tmp_path):
     (tmp_path / "model" / "graph").mkdir(parents=True)
     (tmp_path / "base").mkdir()
