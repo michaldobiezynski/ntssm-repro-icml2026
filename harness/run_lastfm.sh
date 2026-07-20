@@ -10,6 +10,14 @@ EPOCHS="${EPOCHS:-200}"
 # Only these four vary per dataset; tau/lr/reg/layers/epochs are fixed. Override via env.
 A_UU="${ALPHA_UU:-1.2}"; A_II="${ALPHA_II:-0.8}"; A_UI="${ALPHA_UI:-0.8}"; A_IU="${ALPHA_IU:-0.9}"
 
+# Validate owner-settable numeric overrides. These are interpolated unquoted into the
+# training arg string, so a non-numeric value could word-split or glob-expand; reject it.
+for _pair in "SEED=$SEED" "EPOCHS=$EPOCHS" "ALPHA_UU=$A_UU" "ALPHA_II=$A_II" "ALPHA_UI=$A_UI" "ALPHA_IU=$A_IU"; do
+  if ! [[ "${_pair#*=}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    echo "error: ${_pair%%=*} must be numeric, got '${_pair#*=}'" >&2; exit 2
+  fi
+done
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$HERE")"
 CLONE="${NTSSM_DIR:-$REPO/NT-SSM}"
@@ -34,9 +42,10 @@ Reproduce the LastFM / LightGCN 2x2 objective matrix (BPR, NT-BPR, SSM, NT-SSM).
   --execute    actually run training (owner-triggered; needs .venv + patched ./NT-SSM)
   -h, --help   show this help
 
-Env overrides: SEED (2026), EPOCHS (200), ALPHA_UU/II/UI/IU (1.0),
+Env overrides: SEED (2026), EPOCHS (200), ALPHA_UU/II/UI/IU (1.2/0.8/0.8/0.9),
                NTSSM_DIR (<repo>/NT-SSM), MAX_MINUTES (45).
-Budgets (CLAUDE.md Section 5): LastFM ~45 min total; overall time-box 4 h.
+Budget (CLAUDE.md Section 5): MAX_MINUTES gates the START of each objective; an
+already-running objective is not interrupted (LastFM early-stops, so runs stay short).
 EOF
 }
 
@@ -76,6 +85,9 @@ execute() {
   local start=$SECONDS
   for pair in "NT-SSM=$args_ntssm" "SSM=$args_ssm" "NT-BPR=$args_ntbpr" "BPR=$args_bpr"; do
     local label="${pair%%=*}" args="${pair#*=}"
+    # Budget gate is checked BEFORE starting each objective, so it caps how many
+    # objectives start, not the runtime of one already in flight. macOS lacks GNU
+    # `timeout`, so a hard per-run cap is intentionally not imposed here.
     local elapsed_min=$(( (SECONDS - start) / 60 ))
     if [ "$elapsed_min" -ge "$max_min" ]; then
       echo "budget ${max_min}m reached before $label; stopping (CLAUDE.md Section 9)" >&2

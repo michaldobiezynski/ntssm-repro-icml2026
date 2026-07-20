@@ -53,8 +53,22 @@ def test_dry_run_uses_verified_hyperparameters():
 def test_dry_run_does_not_execute_training():
     out = _run("--dry-run").stdout
     assert "DRY RUN" in out.upper()
-    # dry-run must not actually invoke python training
-    assert "Running time" not in out  # NT-SSM prints this only on a real run
+    # '>>> training' is emitted only by execute(); its absence proves dry-run did not
+    # mis-route to the training path (this can actually go RED on a case-branch regression).
+    assert ">>> training" not in out
+
+
+def test_dry_run_pins_paper_alphas_on_nt_commands_only():
+    lines = [l for l in _run("--dry-run").stdout.splitlines() if l.startswith("python main.py")]
+    assert len(lines) == 4
+    ntssm, ssm, ntbpr, bpr = lines  # print_matrix order: NT-SSM, SSM, NT-BPR, BPR
+    alphas = "--alpha_uu 1.2 --alpha_ii 0.8 --alpha_ui 0.8 --alpha_iu 0.9"
+    # NT variants carry the paper's LastFM Table 5 alphas and the right loss_type
+    assert alphas in ntssm and "LightGCN_NT" in ntssm and "--loss_type ssm" in ntssm
+    assert alphas in ntbpr and "LightGCN_NT" in ntbpr and "--loss_type bpr" in ntbpr
+    # plain baselines carry NO alpha flags
+    assert "--alpha_uu" not in ssm and "--loss_type ssm" in ssm
+    assert "--alpha_uu" not in bpr and "--loss_type bpr" in bpr
 
 
 def test_no_flag_prints_usage_without_training():
