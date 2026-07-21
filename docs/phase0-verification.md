@@ -22,10 +22,10 @@ Cloned `geon0325/NT-SSM` at commit `da8655ef0b331e5fb2b6e5ceb05756b2f8c8aa05` (H
 
 20 `.cuda()` calls; the LightGCN + LightGCN_NT path (our target) needs 4:
 
-- `model/graph/LightGCN.py:42` — `model = self.model.cuda()`
-- `model/graph/LightGCN.py:150` — `self.sparse_norm_adj = ...convert_sparse_mat_to_tensor(self.norm_adj).cuda()`
-- `model/graph/LightGCN_NT.py:46` — `model = self.model.cuda()`
-- `model/graph/LightGCN_NT.py:232` — `self.sparse_norm_adj = ...cuda()`
+- `model/graph/LightGCN.py:42`: `model = self.model.cuda()`
+- `model/graph/LightGCN.py:150`: `self.sparse_norm_adj = ...convert_sparse_mat_to_tensor(self.norm_adj).cuda()`
+- `model/graph/LightGCN_NT.py:46`: `model = self.model.cuda()`
+- `model/graph/LightGCN_NT.py:232`: `self.sparse_norm_adj = ...cuda()`
 
 Full inventory also covers `SimGCL{,_NT}.py` (5 each, incl. `torch.rand_like(...).cuda()` and `.cuda()` on unique-index tensors) and `NCL{,_NT}.py` (2-4 each, incl. `centroids`/`node2cluster` from faiss clustering). `main.py:94` sets `os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu` but that is harmless on a CUDA-less box.
 
@@ -61,7 +61,7 @@ python main.py --dataset lastfm --model_name LightGCN --model_type graph \
 # NT-BPR / BPR: same as above with --loss_type bpr on LightGCN_NT / LightGCN respectively.
 ```
 
-Note: the LastFM `--alpha_*` values above come from the paper's Appendix Table 5 (LightGCN / LastFM / NT-SSM: uu1.2/ii0.8/ui0.8/iu0.9), not from `run.sh` (which targets ml-1m with iu1.0). Only these four weights vary per dataset; tau/lr/reg/layers/epochs are held fixed. `harness/run_lastfm.sh` uses these as defaults, overridable via `ALPHA_UU/II/UI/IU`.
+Note: the LastFM `--alpha_*` values above come from the paper's Appendix Table 5 (LightGCN / LastFM / NT-SSM: uu1.2/ii0.8/ui0.8/iu0.9), not from `run.sh` (which targets ml-1m with iu1.0). Only these four weights vary per dataset; tau/lr/reg/layers/epochs are held fixed. NT-BPR uses a different Table 5 row (uu1.3/ii1.5/ui0.9/iu1.3), so `harness/run_lastfm.sh` keeps the two objectives' alphas separate: override via `SSM_ALPHA_UU/II/UI/IU` (NT-SSM) and `BPR_ALPHA_UU/II/UI/IU` (NT-BPR).
 
 ## Open items for the harness build
 

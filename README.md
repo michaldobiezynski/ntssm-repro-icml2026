@@ -77,6 +77,6 @@ logbook). ML-1M/LightGCN is reproduced via the same `run_matrix.sh ml-1m` path.
 
 Harness: `setup_env.sh`, three reproducible clone patches (`.cuda()`→CPU, `exec/eval`→
 `importlib`, injected Trackio metric logging), `run_matrix.sh`/`run_lastfm.sh`,
-`ordering_check.py`, `build_logbook.sh`, and a local-only Trackio wrapper — **71 unit tests**.
+`ordering_check.py`, `build_logbook.sh`, and a local-only Trackio wrapper, backed by **71 unit tests**.
 Three bugs were found *by running the reproduction* (device, import scoping, NT-BPR alphas).
 Training and publishing remain owner-triggered.
