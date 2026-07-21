@@ -58,14 +58,22 @@ def patch_source(text):
 
 def _insert_device_constant(text):
     lines = text.splitlines(keepends=True)
-    # Preferred: right after a top-level `import torch` (which binds the name `torch`).
-    for idx, line in enumerate(lines):
-        if line.strip() == "import torch":
-            lines.insert(idx + 1, _DEVICE_CONST + "\n")
-            return "".join(lines)
-    # Fallback: no bare `import torch`. Insert a self-contained block, but AFTER any
-    # leading `from __future__` imports and a module docstring (both of which must stay
-    # first), so the patched file still compiles.
+    # Preferred: right after a MODULE-LEVEL `import torch` (which binds the name `torch`).
+    # Use ast so an *indented* `import torch` (inside a function/try) is never selected,
+    # which would place the module-scoped constant at the wrong indentation.
+    try:
+        tree = ast.parse(text)
+        for node in tree.body:  # module scope only
+            if isinstance(node, ast.Import) and any(
+                a.name == "torch" and a.asname is None for a in node.names
+            ):
+                lines.insert(node.end_lineno, _DEVICE_CONST + "\n")  # end_lineno is 1-based -> after the line
+                return "".join(lines)
+    except SyntaxError:
+        pass
+    # Fallback: no module-level bare `import torch`. Insert a self-contained block, but
+    # AFTER any leading `from __future__` imports and a module docstring (both of which
+    # must stay first), so the patched file still compiles.
     at = _first_insertable_line(text)
     block = 'import torch as _ntssm_torch\n_NTSSM_DEVICE = _ntssm_torch.device("cpu")\n'
     lines.insert(at, block)

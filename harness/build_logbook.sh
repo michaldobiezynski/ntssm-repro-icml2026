@@ -9,19 +9,23 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$HERE")"
 PY="$REPO/.venv/bin/python"
 TRACKIO="$REPO/.venv/bin/trackio"
-L="$REPO/NT-SSM/logs"
-TITLE="${TITLE:-Reproducing NT-SSM (LightGCN, CPU) — ICML 2026}"
+L="${NTSSM_LOGS:-$REPO/NT-SSM/logs}"   # overridable so the matrix guard is testable
+TITLE="${TITLE:-Reproducing NT-SSM (LightGCN, CPU), ICML 2026}"
 shopt -s nullglob
+
+# shellcheck disable=SC2012  # log filenames are controlled (config_name, no special chars); BSD find lacks -printf
+pick_newest() { ls -t "$@" 2>/dev/null | head -1; }  # deterministic: newest by mtime
 
 verdict() {  # $1 dataset, $2 reference json
   local ds="$1" ref="$2"
   local ntssm ntbpr ssm bpr
-  ntssm=("$L"/"${ds}"_LightGCN_NT_*loss-ssm*.txt)
-  ntbpr=("$L"/"${ds}"_LightGCN_NT_*loss-bpr*.txt)
-  ssm=("$L"/"${ds}"_LightGCN_lr*loss-ssm*.txt)
-  bpr=("$L"/"${ds}"_LightGCN_lr*loss-bpr*.txt)
+  # If a glob matches several logs (multiple seeds / retuned alphas), take the newest run.
+  ntssm=$(pick_newest "$L"/"${ds}"_LightGCN_NT_*loss-ssm*.txt)
+  ntbpr=$(pick_newest "$L"/"${ds}"_LightGCN_NT_*loss-bpr*.txt)
+  ssm=$(pick_newest "$L"/"${ds}"_LightGCN_lr*loss-ssm*.txt)
+  bpr=$(pick_newest "$L"/"${ds}"_LightGCN_lr*loss-bpr*.txt)
   "$PY" "$HERE/ordering_check.py" --logs \
-    "NT-SSM=${ntssm[0]}" "SSM=${ssm[0]}" "NT-BPR=${ntbpr[0]}" "BPR=${bpr[0]}" \
+    "NT-SSM=${ntssm}" "SSM=${ssm}" "NT-BPR=${ntbpr}" "BPR=${bpr}" \
     --reference "$ref" 2>&1 || true  # exit 1 on ordering FAIL is expected content
 }
 
@@ -49,7 +53,7 @@ add_dataset() {  # $1 dataset, $2 pretty, $3 reference json, $4 ssm-alphas, $5 b
     --title "Ordering verdict vs paper" --page "$p1"
 
   "$TRACKIO" logbook cell markdown \
-"Paper claim (Table 1): NT-BPR improves over standard BPR on LightGCN / ${pretty}. Same setup, BPR-family loss and the NT-BPR-specific Table 5 alphas ${ba} (distinct from NT-SSM's — the paper tunes each objective separately)." \
+"Paper claim (Table 1): NT-BPR improves over standard BPR on LightGCN / ${pretty}. Same setup, BPR-family loss and the NT-BPR-specific Table 5 alphas ${ba} (distinct from NT-SSM's; the paper tunes each objective separately)." \
     --title "Claim & method" --page "$p2"
   "$TRACKIO" logbook cell dashboard "$project" --title "Training metrics (live)" --page "$p2"
   "$TRACKIO" logbook cell markdown "**Reproduction verdict**\n\n\`\`\`\n${v}\n\`\`\`" \
@@ -73,7 +77,7 @@ fi
 
 # Honest-log note (applies across datasets).
 "$TRACKIO" logbook cell markdown \
-"**Deviations & method (honest log).** Single seed (2026); the paper averages five, so absolute values can drift within the tolerance band \`paper_mean +/- max(5% , 3·std)\`. On LastFM, plain SSM early-stops low (~0.211 vs 0.240 NDCG@20) — this only widens NT-SSM's margin, so the ordering claim is unaffected. NT-BPR uses its own Table 5 alphas (an earlier run wrongly reused the NT-SSM alphas and underperformed). All runs on Apple-Silicon CPU; \`.cuda()\` and a Python-3 \`exec/eval\` import bug were patched to make the pinned clone run locally." \
+"**Deviations & method (honest log).** Single seed (2026); the paper averages five, so absolute values can drift within the tolerance band \`paper_mean +/- max(5% , 3·std)\`. On LastFM, plain SSM early-stops low (~0.211 vs 0.240 NDCG@20), which only widens NT-SSM's margin, so the ordering claim is unaffected. NT-BPR uses its own Table 5 alphas (an earlier run wrongly reused the NT-SSM alphas and underperformed). All runs on Apple-Silicon CPU; \`.cuda()\` and a Python-3 \`exec/eval\` import bug were patched to make the pinned clone run locally." \
   --title "Deviations & caveats" --page "Notes"
 
 echo

@@ -63,6 +63,8 @@ execute() {
   [ -x "$VENV/bin/python" ] || { echo "error: no .venv; run harness/setup_env.sh first" >&2; exit 2; }
   grep -rq "_NTSSM_DEVICE" "$CLONE/model/graph/LightGCN.py" 2>/dev/null || {
     echo "error: clone not device-patched; run harness/setup_env.sh first" >&2; exit 2; }
+  grep -q "# trackio: run init" "$CLONE/main.py" 2>/dev/null || {
+    echo "error: clone missing the trackio metric patch (dashboards would be empty); run harness/setup_env.sh" >&2; exit 2; }
   local max_min="${MAX_MINUTES:-$BUDGET_DEFAULT}"
   echo "Executing $DATASET matrix on CPU (budget ${max_min} min)."
   cd "$CLONE"
