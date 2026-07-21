@@ -101,6 +101,42 @@ def test_fallback_keeps_module_docstring_first():
     assert new.splitlines()[0].strip() == '"""Module doc."""'
 
 
+SELFREC_SRC = textwrap.dedent(
+    """\
+    class SELFRec(object):
+        def execute(self):
+            # import the model module
+            import_str = 'from model.'+ self.config.model_type +'.' + self.config.model_name + ' import ' + self.config.model_name
+            exec(import_str)
+            recommender = self.config.model_name + '(self.config,self.training_data,self.valid_data,self.test_data,**self.kwargs)'
+            eval(recommender).execute()
+    """
+)
+
+
+def test_selfrec_import_is_rewritten_to_importlib():
+    new, changed = pd.patch_selfrec_source(SELFREC_SRC)
+    assert changed is True
+    assert "exec(import_str)" not in new
+    assert "eval(recommender)" not in new
+    assert "importlib.import_module" in new
+    compile(new, "<selfrec>", "exec")
+
+
+def test_selfrec_patch_is_idempotent():
+    once, _ = pd.patch_selfrec_source(SELFREC_SRC)
+    twice, changed = pd.patch_selfrec_source(once)
+    assert changed is False
+    assert twice == once
+
+
+def test_patch_tree_applies_selfrec_fix(tmp_path):
+    (tmp_path / "SELFRec.py").write_text(SELFREC_SRC)
+    summary = pd.patch_tree(str(tmp_path))
+    assert summary.selfrec_fixed is True
+    assert "importlib.import_module" in (tmp_path / "SELFRec.py").read_text()
+
+
 def test_patch_tree_walks_and_reports(tmp_path):
     (tmp_path / "model" / "graph").mkdir(parents=True)
     (tmp_path / "base").mkdir()

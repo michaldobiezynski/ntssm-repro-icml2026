@@ -10,6 +10,8 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # Datasets and run outputs (large / regenerable)
 /data/

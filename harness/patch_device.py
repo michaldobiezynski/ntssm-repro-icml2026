@@ -16,8 +16,22 @@ from __future__ import annotations
 import argparse
 import ast
 import os
+import re
 import sys
 from dataclasses import dataclass, field
+
+# SELFRec.execute() imports the model via exec()+eval(), which NameErrors under Python 3
+# function scoping (exec cannot inject a local that eval then resolves). Rewrite to importlib.
+_SELFREC_PATTERN = re.compile(
+    r" *import_str = .*?eval\(recommender\)\.execute\(\)",
+    re.DOTALL,
+)
+_SELFREC_REPLACEMENT = (
+    "        import importlib\n"
+    "        module = importlib.import_module('model.' + self.config.model_type + '.' + self.config.model_name)\n"
+    "        recommender_class = getattr(module, self.config.model_name)\n"
+    "        recommender_class(self.config, self.training_data, self.valid_data, self.test_data, **self.kwargs).execute()"
+)
 
 _DEVICE_CONST = '_NTSSM_DEVICE = torch.device("cpu")  # patched by patch_device.py: CPU-only, no CUDA'
 
@@ -79,11 +93,23 @@ def _first_insertable_line(text):
     return idx
 
 
+def patch_selfrec_source(text):
+    """Rewrite SELFRec.execute()'s exec()+eval() import to importlib. Idempotent.
+
+    Returns (new_text, changed). No-op if already importlib-based or the pattern is absent.
+    """
+    if "importlib.import_module" in text:
+        return text, False
+    new, n = _SELFREC_PATTERN.subn(_SELFREC_REPLACEMENT, text, count=1)
+    return new, n > 0
+
+
 @dataclass
 class PatchSummary:
     files_patched: list = field(default_factory=list)
     cuda_replaced: int = 0
     sparse_fixed: int = 0
+    selfrec_fixed: bool = False
 
 
 def patch_tree(root):
@@ -105,6 +131,18 @@ def patch_tree(root):
                 summary.files_patched.append(os.path.relpath(path, root))
                 summary.cuda_replaced += n_cuda
                 summary.sparse_fixed += n_sparse
+
+    # SELFRec.py needs the importlib fix, which the .cuda()/sparse walk above skips.
+    selfrec = os.path.join(root, "SELFRec.py")
+    if os.path.isfile(selfrec):
+        with open(selfrec) as fh:
+            text = fh.read()
+        new, changed = patch_selfrec_source(text)
+        if changed:
+            with open(selfrec, "w") as fh:
+                fh.write(new)
+            summary.selfrec_fixed = True
+            summary.files_patched.append("SELFRec.py")
     return summary
 
 
@@ -124,7 +162,8 @@ def main(argv=None):
         print(
             f"patched {len(s.files_patched)} file(s): "
             f"{s.cuda_replaced} .cuda() -> .to(_NTSSM_DEVICE), "
-            f"{s.sparse_fixed} sparse.FloatTensor -> sparse_coo_tensor"
+            f"{s.sparse_fixed} sparse.FloatTensor -> sparse_coo_tensor, "
+            f"SELFRec import fix: {'yes' if s.selfrec_fixed else 'no'}"
         )
         for f in s.files_patched:
             print(f"  - {f}")

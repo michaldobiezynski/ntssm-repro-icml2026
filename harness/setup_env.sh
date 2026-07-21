@@ -48,9 +48,11 @@ check_setup() {
   fi
   if [ -x "$VENV/bin/python" ]; then
     if "$VENV/bin/python" - <<'PY' 2>/dev/null
-import importlib, sys
-missing = [m for m in ("torch","numpy","scipy","numba") if importlib.util.find_spec(m) is None]
-sys.exit(1 if missing else 0)
+import sys
+try:
+    import torch, numpy, scipy, numba  # noqa: F401  actually import, not just find_spec
+except Exception as exc:
+    print(exc, file=sys.stderr); sys.exit(1)
 PY
     then echo "[ok] imports: torch numpy scipy numba"; else echo "[MISSING] one of torch/numpy/scipy/numba not importable"; ok=1; fi
   fi
