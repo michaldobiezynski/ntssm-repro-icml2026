@@ -21,9 +21,13 @@ htmlcov/
 /embs/
 *.pkl
 
-# Trackio local store
+# Trackio local store + logbook (regenerated; published to a Space, not committed)
 .trackio/
 trackio*.db
+
+# Agent tooling installed by `trackio skills add --claude` (regenerable, machine-specific)
+.agents/
+.claude/
 
 # Secrets: never commit tokens or credentials
 *.token
