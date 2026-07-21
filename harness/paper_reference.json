@@ -1,0 +1,22 @@
+{
+  "_source": "arXiv:2605.24015 Table 1, LightGCN backbone, LastFM dataset (mean +/- std over 5 runs). Extracted verbatim from https://arxiv.org/html/2605.24015v1, cross-checked over two passes.",
+  "backbone": "LightGCN",
+  "dataset": "lastfm",
+  "metrics": ["recall@20", "ndcg@20"],
+  "BPR": {
+    "recall@20": {"mean": 0.2755, "std": 0.0017},
+    "ndcg@20": {"mean": 0.2530, "std": 0.0016}
+  },
+  "NT-BPR": {
+    "recall@20": {"mean": 0.2897, "std": 0.0025},
+    "ndcg@20": {"mean": 0.2654, "std": 0.0016}
+  },
+  "SSM": {
+    "recall@20": {"mean": 0.2617, "std": 0.0021},
+    "ndcg@20": {"mean": 0.2404, "std": 0.0013}
+  },
+  "NT-SSM": {
+    "recall@20": {"mean": 0.2953, "std": 0.0012},
+    "ndcg@20": {"mean": 0.2709, "std": 0.0013}
+  }
+}

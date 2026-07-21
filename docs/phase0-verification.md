@@ -15,17 +15,17 @@ Cloned `geon0325/NT-SSM` at commit `da8655ef0b331e5fb2b6e5ceb05756b2f8c8aa05` (H
 | Core sparse op | `torch.sparse.mm` predicted | **Confirmed** in every backbone. CPU is correct; MPS sparse is unreliable. |
 | `requirements.txt` | `pip install -r requirements.txt` | **Missing.** README references it but no file exists. Deps must be synthesised. |
 | Seed | unverified | `--seed` default **2026**. |
-| Epochs / patience | "read from conf" | `--epoch` default **200**. Best-metric tracking via `bestPerformance` in `base/*_recommender.py`; **no explicit patience counter** found. |
-| Eval protocol | Recall@20 / NDCG@20 | `--item_ranking 10,20,40`. Per-epoch metrics written to `logs/*.txt` (CSV: `epoch,split,,<6 numbers>`). Column map must be read from the emitting code. |
+| Epochs / patience | "read from conf" | `--epoch` default **200**. Early stopping with **patience=10** on best validation NDCG@20 (`LightGCN.py:45` / `LightGCN_NT.py:49`). The `bestPerformance` path in `base/graph_recommender.py` is dead code for these models. |
+| Eval protocol | Recall@20 / NDCG@20 | `--item_ranking 10,20,40`. Per-epoch metrics to `logs/*.txt`, CSV `epoch,split,'',R@10,N@10,R@20,N@20,R@40,N@40` (**Recall@20 = field 5, NDCG@20 = field 6**; no header; field 2 always empty; `round(x,5)` so trailing zeros are stripped). |
 
 ## Device patch surface (the one real blocker)
 
 20 `.cuda()` calls; the LightGCN + LightGCN_NT path (our target) needs 4:
 
-- `model/graph/LightGCN.py:42` — `model = self.model.cuda()`
-- `model/graph/LightGCN.py:150` — `self.sparse_norm_adj = ...convert_sparse_mat_to_tensor(self.norm_adj).cuda()`
-- `model/graph/LightGCN_NT.py:46` — `model = self.model.cuda()`
-- `model/graph/LightGCN_NT.py:232` — `self.sparse_norm_adj = ...cuda()`
+- `model/graph/LightGCN.py:42`: `model = self.model.cuda()`
+- `model/graph/LightGCN.py:150`: `self.sparse_norm_adj = ...convert_sparse_mat_to_tensor(self.norm_adj).cuda()`
+- `model/graph/LightGCN_NT.py:46`: `model = self.model.cuda()`
+- `model/graph/LightGCN_NT.py:232`: `self.sparse_norm_adj = ...cuda()`
 
 Full inventory also covers `SimGCL{,_NT}.py` (5 each, incl. `torch.rand_like(...).cuda()` and `.cuda()` on unique-index tensors) and `NCL{,_NT}.py` (2-4 each, incl. `centroids`/`node2cluster` from faiss clustering). `main.py:94` sets `os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu` but that is harmless on a CUDA-less box.
 
@@ -51,7 +51,7 @@ After the device patch, from inside the patched `NT-SSM/` clone (2x2 objective m
 python main.py --dataset lastfm --model_name LightGCN_NT --model_type graph \
   --loss_type ssm --tau 0.2 --epoch 200 --batch_size 2048 --learning_rate 0.001 \
   --reg_lambda 0.0001 --embedding_size 64 --n_layer 2 --item_ranking 10,20,40 \
-  --alpha_uu 1.0 --alpha_ii 1.0 --alpha_ui 1.0 --alpha_iu 1.0 --seed 2026
+  --alpha_uu 1.2 --alpha_ii 0.8 --alpha_ui 0.8 --alpha_iu 0.9 --seed 2026
 
 # SSM     (standard sampled softmax; drop the _NT suffix)
 python main.py --dataset lastfm --model_name LightGCN --model_type graph \
@@ -61,10 +61,10 @@ python main.py --dataset lastfm --model_name LightGCN --model_type graph \
 # NT-BPR / BPR: same as above with --loss_type bpr on LightGCN_NT / LightGCN respectively.
 ```
 
-Note: LastFM-specific `--alpha_*` values are not in `run.sh` (which targets ml-1m with uu1.2/ii0.8/ui0.8/iu1.0). Start from `1.0` all-round or the paper's LastFM appendix values, and log whatever is used.
+Note: the LastFM `--alpha_*` values above come from the paper's Appendix Table 5 (LightGCN / LastFM / NT-SSM: uu1.2/ii0.8/ui0.8/iu0.9), not from `run.sh` (which targets ml-1m with iu1.0). Only these four weights vary per dataset; tau/lr/reg/layers/epochs are held fixed. NT-BPR uses a different Table 5 row (uu1.3/ii1.5/ui0.9/iu1.3), so `harness/run_lastfm.sh` keeps the two objectives' alphas separate: override via `SSM_ALPHA_UU/II/UI/IU` (NT-SSM) and `BPR_ALPHA_UU/II/UI/IU` (NT-BPR).
 
 ## Open items for the harness build
 
-1. Read the exact column order in `logs/*.txt` from the model's evaluation/logging code (`util/evaluation.py` + `base/graph_recommender.py`) so the ordering checker parses the right Recall@20 / NDCG@20 columns.
-2. Confirm best-metric selection / whether any early stopping exists in `base/graph_recommender.py` (the `bestPerformance` hits above were in `seq_recommender.py`).
-3. Verify `numba` and the deprecated sparse-tensor call in the target venv before any run.
+1. RESOLVED. Log column order is `epoch,split,'',R@10,N@10,R@20,N@20,R@40,N@40`; Recall@20 = field 5, NDCG@20 = field 6 (`LightGCN_NT.py` logging block). The harness parser derives field indices from `--item_ranking` rather than hardcoding them.
+2. RESOLVED. Early stopping exists: patience 10 on best validation NDCG@20 (`LightGCN.py:45` / `LightGCN_NT.py:49`); the reported figures are the test row at the best-valid epoch. The `graph_recommender.bestPerformance` path is dead code for these backbones.
+3. Verify `numba` and the deprecated `torch.sparse.FloatTensor` call in the target venv before any run (checked by `harness/setup_env.sh`).
