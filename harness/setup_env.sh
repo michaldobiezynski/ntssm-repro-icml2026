@@ -81,6 +81,9 @@ full_setup() {
   echo ">>> applying device patch"
   "$VENV/bin/python" "$HERE/patch_device.py" --root "$CLONE"
 
+  echo ">>> injecting trackio metric logging"
+  "$VENV/bin/python" "$HERE/patch_metrics.py" --root "$CLONE"
+
   echo ">>> verifying imports and torch build"
   "$VENV/bin/python" - <<'PY'
 import torch, numpy, scipy, numba
