@@ -58,14 +58,17 @@ def test_dry_run_does_not_execute_training():
     assert ">>> training" not in out
 
 
-def test_dry_run_pins_paper_alphas_on_nt_commands_only():
+def test_dry_run_pins_objective_specific_paper_alphas():
     lines = [l for l in _run("--dry-run").stdout.splitlines() if l.startswith("python main.py")]
     assert len(lines) == 4
     ntssm, ssm, ntbpr, bpr = lines  # print_matrix order: NT-SSM, SSM, NT-BPR, BPR
-    alphas = "--alpha_uu 1.2 --alpha_ii 0.8 --alpha_ui 0.8 --alpha_iu 0.9"
-    # NT variants carry the paper's LastFM Table 5 alphas and the right loss_type
-    assert alphas in ntssm and "LightGCN_NT" in ntssm and "--loss_type ssm" in ntssm
-    assert alphas in ntbpr and "LightGCN_NT" in ntbpr and "--loss_type bpr" in ntbpr
+    # Table 5 gives DIFFERENT optimal alphas to NT-SSM vs NT-BPR (LightGCN/LastFM)
+    ssm_alphas = "--alpha_uu 1.2 --alpha_ii 0.8 --alpha_ui 0.8 --alpha_iu 0.9"
+    bpr_alphas = "--alpha_uu 1.3 --alpha_ii 1.5 --alpha_ui 0.9 --alpha_iu 1.3"
+    assert ssm_alphas in ntssm and "LightGCN_NT" in ntssm and "--loss_type ssm" in ntssm
+    assert bpr_alphas in ntbpr and "LightGCN_NT" in ntbpr and "--loss_type bpr" in ntbpr
+    # NT-SSM must NOT accidentally carry the NT-BPR alphas and vice versa
+    assert bpr_alphas not in ntssm and ssm_alphas not in ntbpr
     # plain baselines carry NO alpha flags
     assert "--alpha_uu" not in ssm and "--loss_type ssm" in ssm
     assert "--alpha_uu" not in bpr and "--loss_type bpr" in bpr

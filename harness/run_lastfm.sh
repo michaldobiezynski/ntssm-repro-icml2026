@@ -5,14 +5,18 @@ set -euo pipefail
 
 SEED="${SEED:-2026}"
 EPOCHS="${EPOCHS:-200}"
-# LastFM neighbour-type weights for the NT variants, from the paper's Appendix Table 5
-# (LightGCN / LastFM / NT-SSM: alpha_uu=1.2, alpha_ii=0.8, alpha_ui=0.8, alpha_iu=0.9).
-# Only these four vary per dataset; tau/lr/reg/layers/epochs are fixed. Override via env.
-A_UU="${ALPHA_UU:-1.2}"; A_II="${ALPHA_II:-0.8}"; A_UI="${ALPHA_UI:-0.8}"; A_IU="${ALPHA_IU:-0.9}"
+# LastFM neighbour-type weights, from the paper's Appendix Table 5 (LightGCN / LastFM).
+# NT-BPR and NT-SSM have DIFFERENT optimal alphas per Table 5 ("Optimal hyperparameter
+# values of NT-BPR and NT-SSM") -- do not share them. Only these vary per dataset;
+# tau/lr/reg/layers/epochs are fixed. Override via SSM_ALPHA_* / BPR_ALPHA_* env vars.
+SA_UU="${SSM_ALPHA_UU:-1.2}"; SA_II="${SSM_ALPHA_II:-0.8}"; SA_UI="${SSM_ALPHA_UI:-0.8}"; SA_IU="${SSM_ALPHA_IU:-0.9}"
+BA_UU="${BPR_ALPHA_UU:-1.3}"; BA_II="${BPR_ALPHA_II:-1.5}"; BA_UI="${BPR_ALPHA_UI:-0.9}"; BA_IU="${BPR_ALPHA_IU:-1.3}"
 
 # Validate owner-settable numeric overrides. These are interpolated unquoted into the
 # training arg string, so a non-numeric value could word-split or glob-expand; reject it.
-for _pair in "SEED=$SEED" "EPOCHS=$EPOCHS" "ALPHA_UU=$A_UU" "ALPHA_II=$A_II" "ALPHA_UI=$A_UI" "ALPHA_IU=$A_IU"; do
+for _pair in "SEED=$SEED" "EPOCHS=$EPOCHS" \
+             "SSM_ALPHA_UU=$SA_UU" "SSM_ALPHA_II=$SA_II" "SSM_ALPHA_UI=$SA_UI" "SSM_ALPHA_IU=$SA_IU" \
+             "BPR_ALPHA_UU=$BA_UU" "BPR_ALPHA_II=$BA_II" "BPR_ALPHA_UI=$BA_UI" "BPR_ALPHA_IU=$BA_IU"; do
   if ! [[ "${_pair#*=}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
     echo "error: ${_pair%%=*} must be numeric, got '${_pair#*=}'" >&2; exit 2
   fi
@@ -24,12 +28,13 @@ CLONE="${NTSSM_DIR:-$REPO/NT-SSM}"
 VENV="$REPO/.venv"
 
 COMMON="--dataset lastfm --model_type graph --item_ranking 10,20,40 --embedding_size 64 --epoch $EPOCHS --batch_size 2048 --learning_rate 0.001 --reg_lambda 0.0001 --n_layer 2 --seed $SEED"
-NT_ALPHAS="--alpha_uu $A_UU --alpha_ii $A_II --alpha_ui $A_UI --alpha_iu $A_IU"
+NT_SSM_ALPHAS="--alpha_uu $SA_UU --alpha_ii $SA_II --alpha_ui $SA_UI --alpha_iu $SA_IU"
+NT_BPR_ALPHAS="--alpha_uu $BA_UU --alpha_ii $BA_II --alpha_ui $BA_UI --alpha_iu $BA_IU"
 
 # Per objective: the arguments after `main.py`.
-args_ntssm="--model_name LightGCN_NT $COMMON --loss_type ssm --tau 0.2 $NT_ALPHAS"
+args_ntssm="--model_name LightGCN_NT $COMMON --loss_type ssm --tau 0.2 $NT_SSM_ALPHAS"
 args_ssm="--model_name LightGCN $COMMON --loss_type ssm --tau 0.2"
-args_ntbpr="--model_name LightGCN_NT $COMMON --loss_type bpr $NT_ALPHAS"
+args_ntbpr="--model_name LightGCN_NT $COMMON --loss_type bpr $NT_BPR_ALPHAS"
 args_bpr="--model_name LightGCN $COMMON --loss_type bpr"
 
 usage() {
@@ -42,7 +47,8 @@ Reproduce the LastFM / LightGCN 2x2 objective matrix (BPR, NT-BPR, SSM, NT-SSM).
   --execute    actually run training (owner-triggered; needs .venv + patched ./NT-SSM)
   -h, --help   show this help
 
-Env overrides: SEED (2026), EPOCHS (200), ALPHA_UU/II/UI/IU (1.2/0.8/0.8/0.9),
+Env overrides: SEED (2026), EPOCHS (200),
+               SSM_ALPHA_UU/II/UI/IU (1.2/0.8/0.8/0.9), BPR_ALPHA_UU/II/UI/IU (1.3/1.5/0.9/1.3),
                NTSSM_DIR (<repo>/NT-SSM), MAX_MINUTES (45).
 Budget (CLAUDE.md Section 5): MAX_MINUTES gates the START of each objective; an
 already-running objective is not interrupted (LastFM early-stops, so runs stay short).
@@ -62,7 +68,7 @@ print_matrix() {
 
 dry_run() {
   echo "=== DRY RUN: planned LastFM pipeline (no training executed) ==="
-  echo "seed=$SEED epochs=$EPOCHS alphas=uu$A_UU/ii$A_II/ui$A_UI/iu$A_IU"
+  echo "seed=$SEED epochs=$EPOCHS  NT-SSM alphas=$SA_UU/$SA_II/$SA_UI/$SA_IU  NT-BPR alphas=$BA_UU/$BA_II/$BA_UI/$BA_IU"
   echo
   print_matrix
   echo "# then compute the reproduction verdict from the four logs:"
