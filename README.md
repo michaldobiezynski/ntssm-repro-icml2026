@@ -73,7 +73,19 @@ end-to-end confirmed the paper's Table 1 claims on Apple-Silicon CPU:
 
 Ordering: **NT-SSM > SSM** (+0.060 ndcg) and **NT-BPR > BPR** (+0.019) both hold. 3/4
 objectives match the paper within tolerance; plain SSM early-stops low (noted in the
-logbook). ML-1M/LightGCN is reproduced via the same `run_matrix.sh ml-1m` path.
+logbook).
+
+**ML-1M / LightGCN reproduces the same way** (`run_matrix.sh ml-1m`, ~36 s/epoch):
+
+| Objective | ndcg@20 (ours / paper) | recall@20 (ours / paper) |
+| --- | --- | --- |
+| NT-SSM | 0.322 / 0.322 | 0.254 / 0.254 |
+| NT-BPR | 0.315 / 0.315 | 0.248 / 0.249 |
+| BPR | 0.296 / 0.295 | 0.233 / 0.233 |
+| SSM | 0.202 / 0.265 | 0.182 / 0.213 |
+
+Both ML-1M ordering claims hold (NT-SSM > SSM +0.119, NT-BPR > BPR +0.019); NT-SSM/NT-BPR/BPR
+within tolerance, SSM low (the same reproducible early-stopping pattern as LastFM).
 
 Harness: `setup_env.sh`, three reproducible clone patches (`.cuda()`→CPU, `exec/eval`→
 `importlib`, injected Trackio metric logging), `run_matrix.sh`/`run_lastfm.sh`,
