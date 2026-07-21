@@ -1,0 +1,22 @@
+{
+  "_source": "arXiv:2605.24015 Table 1 (id S6.T1), LightGCN backbone, MovieLens/ML-1M (mean +/- std over 5 runs). Extracted from the saved paper HTML by a tr/td walker, cross-validated exact-match against the confirmed LastFM/LightGCN row on all 8 values. Note: NDCG@20 > Recall@20 across the whole ML-1M column in this table (reported as-is).",
+  "backbone": "LightGCN",
+  "dataset": "ml-1m",
+  "metrics": ["recall@20", "ndcg@20"],
+  "BPR": {
+    "recall@20": {"mean": 0.2328, "std": 0.0016},
+    "ndcg@20": {"mean": 0.2953, "std": 0.0009}
+  },
+  "NT-BPR": {
+    "recall@20": {"mean": 0.2487, "std": 0.0008},
+    "ndcg@20": {"mean": 0.3154, "std": 0.0009}
+  },
+  "SSM": {
+    "recall@20": {"mean": 0.2134, "std": 0.0009},
+    "ndcg@20": {"mean": 0.2648, "std": 0.0024}
+  },
+  "NT-SSM": {
+    "recall@20": {"mean": 0.2544, "std": 0.0005},
+    "ndcg@20": {"mean": 0.3216, "std": 0.0002}
+  }
+}
