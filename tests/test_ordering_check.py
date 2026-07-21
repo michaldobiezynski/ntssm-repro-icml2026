@@ -192,3 +192,17 @@ def test_main_results_json_input(tmp_path, capsys):
     results.write_text(json.dumps(_full_matrix(0.27, 0.26, 0.24, 0.23, metric="ndcg@20")))
     code = oc.main([str(results), "--primary", "ndcg@20"])
     assert code == 0
+
+
+def test_main_reference_renders_tolerance_section(tmp_path, capsys):
+    import json
+
+    p = _write_matrix_logs(tmp_path)
+    ref = tmp_path / "ref.json"
+    ref.write_text(
+        json.dumps({o: {"ndcg@20": {"mean": 0.26, "std": 0.001}} for o in ("NT-SSM", "SSM", "NT-BPR", "BPR")})
+    )
+    oc.main(
+        ["--logs", *[f"{o}={pt}" for o, pt in p.items()], "--primary", "ndcg@20", "--reference", str(ref)]
+    )
+    assert "TOLERANCE" in capsys.readouterr().out

@@ -1,4 +1,4 @@
-"""Tests for the generalized dataset runner (run_matrix.sh)."""
+"""Tests for the generalised dataset runner (run_matrix.sh)."""
 import subprocess
 from pathlib import Path
 

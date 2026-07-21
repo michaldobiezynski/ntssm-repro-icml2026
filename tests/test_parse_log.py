@@ -76,8 +76,13 @@ def test_parse_raises_if_selection_cutoff_absent(tmp_path):
 
 
 def test_parse_skips_bare_numeric_and_short_lines(tmp_path):
-    # A stray progress print ('200') and a too-short line must be skipped, not crash (F1).
-    log = "200\ngarbage\n1,valid,,0.1,0.09,0.2,0.18,0.3,0.28\n1,test,,0.1,0.09,0.21,0.19,0.3,0.28\n"
+    # Skip a stray '200' (short-line guard), a 'garbage' word, AND a full-width row whose
+    # epoch field is non-integer (int() ValueError guard) -- none should crash (F1).
+    log = (
+        "200\ngarbage\n"
+        "hdr,valid,,0.9,0.9,0.9,0.9,0.9,0.9\n"  # non-int epoch, full width -> int() guard
+        "1,valid,,0.1,0.09,0.2,0.18,0.3,0.28\n1,test,,0.1,0.09,0.21,0.19,0.3,0.28\n"
+    )
     path = _write(tmp_path, log)
     metrics = oc.parse_epoch_log(path)
     assert metrics["recall@20"] == pytest.approx(0.21)

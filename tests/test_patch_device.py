@@ -87,6 +87,17 @@ def test_fallback_inserts_when_no_bare_import_torch():
     compile(new, "<patched>", "exec")
 
 
+def test_indented_import_torch_does_not_misplace_constant():
+    # Only an INDENTED `import torch` (inside a function); the module-scoped constant must
+    # NOT be inserted right after it (that produced `SyntaxError: unexpected indent`).
+    src = "def build(x):\n    import torch\n    return x.cuda()\n"
+    new, n_cuda, _, inserted = pd.patch_source(src)
+    assert n_cuda == 1 and inserted is True
+    compile(new, "<indented>", "exec")  # must compile
+    const_line = [l for l in new.splitlines() if "_NTSSM_DEVICE =" in l][0]
+    assert not const_line.startswith(" ")  # constant sits at module scope, column 0
+
+
 def test_fallback_keeps_future_import_first():
     src = "from __future__ import annotations\nimport torch as th\nz = th.zeros(1).cuda()\n"
     new, *_ = pd.patch_source(src)
