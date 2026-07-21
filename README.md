@@ -61,6 +61,22 @@ Multi-hour training is triggered by the owner (step 4), never by an unattended b
 
 ## Status
 
-Phase 0 (verify-on-clone) complete. Reproduction harness built and unit-tested (40 tests):
-CUDA->CPU device patch, dry-runnable LastFM driver, ordering + tolerance verdict, and a
-local-only Trackio wrapper. Training runs remain owner-triggered.
+**LastFM / LightGCN reproduced on CPU (both ordering claims hold).** Running the harness
+end-to-end confirmed the paper's Table 1 claims on Apple-Silicon CPU:
+
+| Objective | ndcg@20 (ours / paper) | recall@20 (ours / paper) |
+| --- | --- | --- |
+| NT-SSM | 0.271 / 0.271 | 0.295 / 0.295 |
+| NT-BPR | 0.266 / 0.265 | 0.288 / 0.290 |
+| BPR | 0.247 / 0.253 | 0.267 / 0.276 |
+| SSM | 0.211 / 0.240 | 0.234 / 0.262 |
+
+Ordering: **NT-SSM > SSM** (+0.060 ndcg) and **NT-BPR > BPR** (+0.019) both hold. 3/4
+objectives match the paper within tolerance; plain SSM early-stops low (noted in the
+logbook). ML-1M/LightGCN is reproduced via the same `run_matrix.sh ml-1m` path.
+
+Harness: `setup_env.sh`, three reproducible clone patches (`.cuda()`→CPU, `exec/eval`→
+`importlib`, injected Trackio metric logging), `run_matrix.sh`/`run_lastfm.sh`,
+`ordering_check.py`, `build_logbook.sh`, and a local-only Trackio wrapper — **71 unit tests**.
+Three bugs were found *by running the reproduction* (device, import scoping, NT-BPR alphas).
+Training and publishing remain owner-triggered.
