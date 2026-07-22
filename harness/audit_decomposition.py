@@ -107,6 +107,26 @@ def main():
     users = rng.choice(n_u, size=args.samples, replace=False)
     items = rng.choice(n_i, size=args.samples, replace=False) + n_u
 
+    # A0. the clone's norm_adj IS the paper's matrix: independently rebuild
+    # D^-1/2 A D^-1/2 from the raw bipartite adjacency and compare exactly;
+    # also pin the bipartite block structure that defines the user/item typing.
+    deg_a0 = np.asarray(raw.sum(axis=1)).ravel()
+    inv_sqrt = np.zeros_like(deg_a0)
+    nz = deg_a0 > 0
+    inv_sqrt[nz] = 1.0 / np.sqrt(deg_a0[nz])
+    rebuilt = sp.diags(inv_sqrt).dot(raw).dot(sp.diags(inv_sqrt)).tocsr()
+    a0_diff = abs(rebuilt - adj).max() if (rebuilt - adj).nnz else 0.0
+    a0_diag = np.abs(adj.diagonal()).max()
+    check("A0 norm_adj == D^-1/2 A D^-1/2, no self-loops",
+          a0_diff < 1e-6 and a0_diag == 0.0,
+          f"max |rebuilt(float64) - norm_adj| = {a0_diff:.2e} (clone builds the "
+          f"same matrix in float32, data/graph.py:10-23), max |diag| = {a0_diag:.2e}")
+    uu_blk = raw[:n_u, :n_u].nnz
+    ii_blk = raw[n_u:, n_u:].nnz
+    check("A0b bipartite blocks: users are rows 0..U-1", uu_blk == 0 and ii_blk == 0,
+          f"user-user block nnz = {uu_blk}, item-item block nnz = {ii_blk} "
+          f"(edges only cross types, pinning the Eq. 2 type labelling)")
+
     # A. symmetry / non-negativity of S on sampled node pairs.
     nodes = np.concatenate([users, items])
     rows = {int(x): s_row(adj, int(x), L) for x in nodes}
@@ -203,8 +223,8 @@ def main():
         for x in nodes[:10]
     )
     check("F  control: D^-1 A closed form != LightGCN", ctrl_err > 1e-2,
-          f"max rel err = {ctrl_err:.2e} (large by design: identity requires "
-          f"the paper's symmetric normalisation)")
+          f"max rel err = {ctrl_err:.2e} (large by design: a different "
+          f"normalisation breaks the closed form; A0 pins WHICH matrix is used)")
 
     print()
     if FAILURES:

@@ -75,7 +75,7 @@ def main():
         repro_gain_paperbase = (nt["ndcg@20"] - ssm_ref["ndcg@20"]["mean"]) / \
             ssm_ref["ndcg@20"]["mean"] * 100
         print(f"\npaper relative gain (NDCG@20): {paper_gain:.2f}%  |  reproduced NT-SSM "
-              f"vs paper baseline 0.2648: {repro_gain_paperbase:.2f}%")
+              f"vs paper baseline {ssm_ref['ndcg@20']['mean']}: {repro_gain_paperbase:.2f}%")
 
 
 if __name__ == "__main__":

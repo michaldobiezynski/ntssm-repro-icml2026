@@ -1,0 +1,48 @@
+--- TIMING ml-1m SSM tau=0.1 ---
+[epoch-timing] epoch 1 train_seconds 15.986
+[epoch-timing] epoch 2 train_seconds 15.831
+[epoch-timing] epoch 3 train_seconds 15.83
+[epoch-timing] epoch 4 train_seconds 16.125
+[epoch-timing] epoch 5 train_seconds 17.306
+[epoch-timing] epoch 6 train_seconds 16.071
+[epoch-timing] epoch 7 train_seconds 17.059
+[epoch-timing] epoch 8 train_seconds 15.692
+[epoch-timing] epoch 9 train_seconds 15.861
+[epoch-timing] epoch 10 train_seconds 19.624
+exit_code=0
+--- TIMING ml-1m NT-SSM ---
+[epoch-timing] epoch 1 train_seconds 38.924
+[epoch-timing] epoch 2 train_seconds 34.34
+[epoch-timing] epoch 3 train_seconds 30.961
+[epoch-timing] epoch 4 train_seconds 30.691
+[epoch-timing] epoch 5 train_seconds 30.992
+[epoch-timing] epoch 6 train_seconds 30.591
+[epoch-timing] epoch 7 train_seconds 32.028
+[epoch-timing] epoch 8 train_seconds 30.566
+[epoch-timing] epoch 9 train_seconds 30.525
+[epoch-timing] epoch 10 train_seconds 30.443
+exit_code=0
+--- TIMING lastfm SSM tau=0.1 ---
+[epoch-timing] epoch 1 train_seconds 0.504
+[epoch-timing] epoch 2 train_seconds 0.473
+[epoch-timing] epoch 3 train_seconds 0.473
+[epoch-timing] epoch 4 train_seconds 0.476
+[epoch-timing] epoch 5 train_seconds 0.481
+[epoch-timing] epoch 6 train_seconds 0.47
+[epoch-timing] epoch 7 train_seconds 0.465
+[epoch-timing] epoch 8 train_seconds 0.468
+[epoch-timing] epoch 9 train_seconds 0.468
+[epoch-timing] epoch 10 train_seconds 0.462
+exit_code=0
+--- TIMING lastfm NT-SSM ---
+[epoch-timing] epoch 1 train_seconds 2.081
+[epoch-timing] epoch 2 train_seconds 2.053
+[epoch-timing] epoch 3 train_seconds 2.049
+[epoch-timing] epoch 4 train_seconds 2.084
+[epoch-timing] epoch 5 train_seconds 2.091
+[epoch-timing] epoch 6 train_seconds 2.077
+[epoch-timing] epoch 7 train_seconds 2.048
+[epoch-timing] epoch 8 train_seconds 2.057
+[epoch-timing] epoch 9 train_seconds 2.055
+[epoch-timing] epoch 10 train_seconds 2.053
+exit_code=0

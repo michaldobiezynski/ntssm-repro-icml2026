@@ -114,8 +114,19 @@ def main():
     # Real structural-similarity rows; restricted supports V (user side), V' (item side).
     s_u = s_row(adj, u, L)
     s_x = np.vstack([s_row(adj, int(x), L) for x in xs])
+    # V: user-side support plus a few explicit ZERO-similarity rows, so the
+    # "S_uv = 0 gives exactly zero gradient" branch is genuinely exercised.
     V = sample_support(s_u, n_u, args.support, rng)
-    Vp = sample_support(s_x[0], n_u, args.support, rng)
+    zero_pool = np.setdiff1d(np.arange(n), np.nonzero(s_u)[0])
+    V = np.sort(np.concatenate([V, rng.choice(zero_pool, size=8, replace=False)]))
+    # V': half from the positive item's support, half from negatives' supports
+    # OUTSIDE it (S_iv' = 0 there), so both upweighted AND downweighted columns
+    # occur and the check-C boundary is crossed in both directions.
+    Vp_pos = sample_support(s_x[0], n_u, args.support // 2, rng)
+    neg_union = np.unique(np.concatenate([np.nonzero(s_x[k])[0] for k in range(1, 9)]))
+    off_pool = np.setdiff1d(neg_union, np.nonzero(s_x[0])[0])
+    take = min(len(off_pool), args.support - len(Vp_pos))
+    Vp = np.sort(np.concatenate([Vp_pos, rng.choice(off_pool, size=take, replace=False)]))
     a_u = s_u[V]
     b_stack = s_x[:, Vp]
     types_v = np.where(V < n_u, "U", "I")

@@ -122,8 +122,12 @@ def main():
             print(f"  q={q} q'={qp} ALL={results['ALL'][f'{q}/{qp}']:.5f} "
                   f"({time.time() - t0:.0f}s)")
 
-    base = results["ALL"]["100.0/100.0"]
-    print(f"\nBaseline (q=q'=100): NDCG@20 = {base:.5f}")
+    base_key = "100.0/100.0"
+    if base_key not in results["ALL"]:
+        base_key = max(results["ALL"])  # partial grid: fall back to any cell
+        print(f"\n(note: q=q'=100 not in grid; using {base_key} as comparison base)")
+    base = results["ALL"][base_key]
+    print(f"\nBaseline ({base_key}): NDCG@20 = {base:.5f}")
     for name in ("ALL", "UU", "II", "UI", "IU"):
         best_key = max(results[name], key=results[name].get)
         best = results[name][best_key]
